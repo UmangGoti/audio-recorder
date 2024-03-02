@@ -5,113 +5,187 @@
  * @format
  */
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import React, {useState} from 'react';
 import {
+  Button,
+  Image,
   SafeAreaView,
-  ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   useColorScheme,
   View,
 } from 'react-native';
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+const audioRecorderPlayer = new AudioRecorderPlayer();
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
+  const [data, setData] = useState({
+    isLoggingIn: false,
+    recordSecs: 0,
+    recordTime: '00:00:00',
+    currentMetering: 0,
+    currentPositionSec: 0,
+    currentDurationSec: 0,
+    playTime: '00:00:00',
+    duration: '00:00:00',
+  });
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  const onStartRecord = async () => {
+    const result = await audioRecorderPlayer.startRecorder(
+      undefined,
+      undefined,
+      true,
+    );
+    audioRecorderPlayer.addRecordBackListener(e => {
+      console.log({
+        currentMetering: e.currentMetering,
+        recordSecs: e.currentPosition,
+        recordTime: audioRecorderPlayer.mmssss(Math.floor(e.currentPosition)),
+      });
+
+      setData(prev => ({
+        ...prev,
+        recordSecs: e.currentPosition,
+        recordTime: audioRecorderPlayer.mmssss(Math.floor(e.currentPosition)),
+      }));
+      return;
+    });
+    console.log(result);
+  };
+
+  const onStopRecord = async () => {
+    const result = await audioRecorderPlayer.stopRecorder();
+    audioRecorderPlayer.removeRecordBackListener();
+    setData(prev => ({
+      ...prev,
+      recordSecs: 0,
+    }));
+    console.log(result);
+  };
+
+  const onStartPlay = async () => {
+    console.log('onStartPlay');
+    const msg = await audioRecorderPlayer.startPlayer();
+    console.log(msg);
+    audioRecorderPlayer.addPlayBackListener(e => {
+      setData(prev => ({
+        ...prev,
+        currentPositionSec: e.currentPosition,
+        currentDurationSec: e.duration,
+        playTime: audioRecorderPlayer.mmssss(Math.floor(e.currentPosition)),
+        duration: audioRecorderPlayer.mmssss(Math.floor(e.duration)),
+      }));
+      return;
+    });
+  };
+
+  const onPausePlay = async () => {
+    await audioRecorderPlayer.pausePlayer();
+  };
+
+  const onStopPlay = async () => {
+    audioRecorderPlayer.stopPlayer();
+    audioRecorderPlayer.removePlayBackListener();
   };
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
+    <SafeAreaView style={styles.container}>
+      <Text style={styles.titleTxt}>Audio Recorder Player</Text>
+      <Text style={styles.txtRecordCounter}>{data.recordTime}</Text>
+      <View style={styles.viewRecorder}>
+        <View style={styles.recordBtnWrapper}>
+          <Button onPress={onStartRecord} title="Start Record" />
+          <Button onPress={onStopRecord} title="Stop Record" />
+          <Button onPress={onStartPlay} title="Start Play" />
+          <Button onPress={onStopPlay} title="Stop Play" />
+          <Button onPress={onPausePlay} title="Pause/Play" />
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  container: {
+    flex: 1,
+    backgroundColor: '#455A64',
+    flexDirection: 'column',
+    alignItems: 'center',
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  titleTxt: {
+    marginTop: 100,
+    color: 'white',
+    fontSize: 28,
   },
-  sectionDescription: {
+  viewRecorder: {
+    marginTop: 40,
+    width: '100%',
+    alignItems: 'center',
+  },
+  recordBtnWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 30,
+  },
+  viewPlayer: {
+    marginTop: 60,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  viewBarWrapper: {
+    marginTop: 28,
+    marginHorizontal: 28,
+    alignSelf: 'stretch',
+  },
+  viewBar: {
+    backgroundColor: '#ccc',
+    height: 4,
+    alignSelf: 'stretch',
+  },
+  viewBarPlay: {
+    backgroundColor: 'white',
+    height: 4,
+    width: 0,
+  },
+  playStatusTxt: {
     marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
+    color: '#ccc',
   },
-  highlight: {
-    fontWeight: '700',
+  playBtnWrapper: {
+    flexDirection: 'row',
+    marginTop: 40,
+  },
+  btn: {
+    borderColor: 'white',
+    borderWidth: 1,
+  },
+  txt: {
+    color: 'white',
+    fontSize: 14,
+    marginHorizontal: 8,
+    marginVertical: 4,
+  },
+  txtRecordCounter: {
+    marginTop: 32,
+    color: 'white',
+    fontSize: 20,
+    textAlignVertical: 'center',
+    fontWeight: '200',
+    fontFamily: 'Helvetica Neue',
+    letterSpacing: 3,
+  },
+  txtCounter: {
+    marginTop: 12,
+    color: 'white',
+    fontSize: 20,
+    textAlignVertical: 'center',
+    fontWeight: '200',
+    fontFamily: 'Helvetica Neue',
+    letterSpacing: 3,
   },
 });
 
